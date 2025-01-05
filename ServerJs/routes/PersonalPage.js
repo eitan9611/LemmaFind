@@ -6,7 +6,7 @@ const {SearchWord/*,DeleteWord_Hist,ReadWord_Hist*/} = require('../controllers/f
 
 //------------------------------------------------------
 //SEARCH  WORD: 
-router.get('/:name',SearchWord)
+router.get('/:word_to_search',SearchWord)
 //------------------------------------------------------
 /*//READ WORD FROM HISTORY: 
 router.get('/:id',ReadWord_Hist)

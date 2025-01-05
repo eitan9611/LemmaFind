@@ -1,17 +1,17 @@
-const axios = require('axios'); // הספרייה לשליחת בקשות HTTP
+const axios = require('axios'); // allows to send HTTP requests
 
 //INPUT: word
 //OUTPUT: json that has all the words in the bank that has the same root as word 
 //function that sends a request to Flask API
 const runPythonScript = (word) => {
     return new Promise((resolve, reject) => {
-        // URL ל-API של Flask שמריץ את ה-main
-        const pythonAPIUrl = 'http://python:5000/run-main'; // python:5000 אם אתה עובד בתוך Docker
 
-        // שולח בקשה ל-API של Flask
+        const pythonAPIUrl = 'http://python:5000/run-main'; // to go to port 5000 and there ask our specific python function. 
+
+        // POST REQ - and attached json that contains the word to search. 
         axios.post(pythonAPIUrl, { word: word })
             .then(response => {
-                resolve(response.data); // מחזיר את התוצאה שקיבלתם מ-Flask
+                resolve(response.data); 
             })
             .catch(error => {
                 console.log("Error calling Python API:", error);
@@ -22,24 +22,19 @@ const runPythonScript = (word) => {
 
 const SearchWord = async (req, res) => {
     try {
-        const name = req.params.name;
-        const pythonResult = await runPythonScript(name);
+        const word = req.params.word_to_search; //getting the end of the url as a parameter
+        const pythonResult = await runPythonScript(word); // getting the json from the POST req
 
-        let result;
         try {
-            result = pythonResult; // התוצאה כבר במבנה JSON, אין צורך לפרס אותה שוב
         } catch (parseError) {
             throw new Error("Failed to parse Python script output to JSON");
         }
-
-        res.status(200).json(result);
-        console.log("we did it!")
+        res.status(200).json(pythonResult);
     } catch (err) {
         res.status(500).json({ message: err.message + " #failed to search" });
     }
 };
 
-//ההערה ארוכה ששמרנו
 /*
 const ReadWord_Hist = async (req,res) => { //everything that comes after ":" is acceptable by the server
     try {
