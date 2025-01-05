@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  nodejs:
+    build:
+      context: ./ServerJs  # מיקום תיקיית ה-Node.js
+      dockerfile: DockerFile
+    ports:
+      - "3000:3000"  # חשיפת פורט 3000 של Node.js
+    volumes:
+      - ./ServerJs:/app  # חיבור תיקיית ה-Node.js לתוך הקונטיינר
+    env_file:
+      - .env  # שימוש בקובץ ENV עולמי עבור Node.js
+
+  python:
+    build:
+      context: ./hebpipe  # מיקום תיקיית ה-Python
+      dockerfile: DockerFile
+    ports:
+      - "5000:5000"  # חשיפת פורט 5000 של Flask
+    volumes:
+      - ./hebpipe:/app  # חיבור תיקיית ה-Python לתוך הקונטיינר
+    env_file:
+      - .env  # שימוש בקובץ ENV עולמי עבור Python
