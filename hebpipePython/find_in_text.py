@@ -1,127 +1,93 @@
+from transformers import AutoModel, AutoTokenizer
+from collections import defaultdict
 import pypdfium2 as pdfium
-import re
-import json
 
-def get_file_letter(page_number):
-    if page_number <= 207:
-        return "א"
-    elif page_number <= 289:
-        return "ב"
-    elif page_number <= 379:
-        return "ג"
-    elif page_number <= 419:
-        return "ד"
-    elif page_number <= 526:
-        return "ה"
-    elif page_number <= 602:
-        return "ו"
-    elif page_number <= 691:
-        return "ז"
-    else:
-        return "ח"
+def process_roots_memory(input_file):
+    # Initialize the DICTA model
+    tokenizer = AutoTokenizer.from_pretrained('dicta-il/dictabert-joint')
+    model = AutoModel.from_pretrained('dicta-il/dictabert-joint', trust_remote_code=True)
+    model.eval()  # Ensure we only use the model and not updating it
 
-def is_valid_paragraph_marker(text):
-    # Single letter case - any Hebrew letter is valid
-    if len(text) == 1:
-        return '\u0590' <= text <= '\u05FF'
-    
-    # Two letter case - must start with י כ ל מ נ ס ע פ צ
-    elif len(text) == 2:
-        valid_starts_2 = 'יכלמנסעפצ'
-        return any(text.startswith(letter) for letter in valid_starts_2)
-    
-    # Three or four letter case - must start with ק ר ש ת
-    elif len(text) in [3, 4]:
-        valid_starts_34 = 'קרשת'
-        return any(text.startswith(letter) for letter in valid_starts_34)
-    
-    # No valid markers with 5 or more letters
-    else:
-        return False
+    # Initialize an empty defaultdict with sets
+    root_to_words_dict = defaultdict(set)
 
-def find_paragraph_marker(line):
-    # Strip whitespace from the beginning
-    line = line.lstrip()
-    
-    # Line should be long enough
-    if len(line) < 2:
-        return None
-    
-    # every paragraph letter starts always with "letter dot space".
-    match = re.match(r'^([\u0590-\u05FF]{1,4})\.\s+(.+)', line)
-    if not match:
-        return None
-        
-    potential_marker = match.group(1)
-    following_text = match.group(2)
-    
-    # Validate according to Hebrew numbering rules
-    if not is_valid_paragraph_marker(potential_marker):
-        return None
-        
-    # Check that following text is substantial
-    if len(following_text.strip()) < 5:
-        return None
-        
-    return potential_marker
+    if input_file.endswith("txt"):
+        # Process the input text file
+        with open(input_file, "r", encoding="utf-8") as infile:
+            for line in infile:
+                try:
+                    # Process the line using DICTA
+                    analysis = model.predict([line.strip()], tokenizer, output_style='json')
 
-def find_sentences_with_values(pdf_path, search_words):
-    results = []
-    pdf = pdfium.PdfDocument(pdf_path)
+                    # Extract tokens and their lemmas from the analysis
+                    for token_info in analysis[0]['tokens']:
+                        word_text = token_info['token']  # The original word
+                        lemma = token_info['lex']  # The root/lemma of the word
 
-    try:
-        total_pages = len(pdf)
-        current_paragraph = None
-        
-        for page_num in range(total_pages):
-            page = pdf[page_num]
-            width = int(page.get_width())
-            height = int(page.get_height())
+                        # Skip empty or None lemmas
+                        if not lemma or lemma == "[BLANK]":
+                            continue
+
+                        # Add the word to the set of the corresponding lemma (avoids duplication)
+                        root_to_words_dict[lemma].add(word_text)
+
+                except Exception as e:
+                    print(f"Error processing line: {line.strip()}\n{e}")
+    
+    elif input_file.endswith("pdf"):
+        try:
+            # Load the PDF file
+            pdf = pdfium.PdfDocument(input_file)
             
-            text_page = page.get_textpage()
-            text = text_page.get_text_bounded(left=0, top=0, right=width, bottom=height)
-            
-            if not text:
-                continue
-            
-            lines = text.split('\n')
-            
-            for line in lines:
-                marker = find_paragraph_marker(line)
-                if marker:
-                    current_paragraph = marker
-                    # Remove the paragraph marker from the line
-                    marker_length = len(marker) + 2  # +2 for dot and space
-                    line = line[marker_length:].strip()
+            # Process each page
+            for page_number in range(len(pdf)):
+                # Get the page
+                page = pdf[page_number]
+                width = int(page.get_width())
+                height = int(page.get_height())
                 
-                if not line:
-                    continue
+                # Extract text from the page with boundaries
+                text_page = page.get_textpage()
+                text_content = text_page.get_text_bounded(left=0, top=0, right=width, bottom=height)
                 
-                sentences = re.split(r'(?<=[.!?])\s+', line)
-                for sentence in sentences:
-                    sentence = sentence.strip()
-                    if not sentence:
-                        continue
-                    
-                    for word in search_words:
-                        if re.search(r'\b' + re.escape(word) + r'\b', sentence):
-                            file_letter = get_file_letter(page_num + 1)
-                            
-                            result = {
-                                "file_letter": file_letter,
-                                "paragraph_marker": current_paragraph,
-                                "sentence": sentence,
-                                "word": word,
-                                "page": page_num + 1
-                            }
-                            
-                            results.append(result)
-                            break
+                # Split the text into lines
+                lines = text_content.split('\n')
+                
+                # Process each line
+                for line in lines:
+                    if line.strip():  # Skip empty lines
+                        try:
+                            # Process the line using DICTA
+                            analysis = model.predict([line.strip()], tokenizer, output_style='json')
+
+                            # Extract tokens and their lemmas from the analysis
+                            for token_info in analysis[0]['tokens']:
+                                word_text = token_info['token']
+                                lemma = token_info['lex']
+
+                                # Skip empty or None lemmas
+                                if not lemma or lemma == "[BLANK]":
+                                    continue
+
+                                # Add the word to the set of the corresponding lemma
+                                root_to_words_dict[lemma].add(word_text)
+
+                        except Exception as e:
+                            print(f"Error processing line on page {page_number + 1}: {line.strip()}\n{e}")
+                
+                # Clean up page resources
+                page.close()
+            
+            # Clean up PDF resources
+            pdf.close()
+            
+        except Exception as e:
+            print(f"Error processing PDF file: {input_file}\n{e}")
     
-    finally:
-        pdf.close()
-    
-    if not results:
-        return json.dumps([], ensure_ascii=False)
-    
-    return json.dumps(results, ensure_ascii=False, indent=4)
+    else:
+        raise ValueError("Unsupported file format. Only .txt and .pdf files are supported.")
+
+    # Convert sets to lists in the final dictionary
+    final_dict = {lemma: list(words) for lemma, words in root_to_words_dict.items()}
+
+    return final_dict

@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   nodejs:
@@ -14,11 +13,11 @@ services:
 
   python:
     build:
-      context: ./hebpipe  # מיקום תיקיית ה-Python
+      context: ./hebpipePython  # מיקום תיקיית ה-Python
       dockerfile: DockerFile
     ports:
       - "5000:5000"  # חשיפת פורט 5000 של Flask
     volumes:
-      - ./hebpipe:/app  # חיבור תיקיית ה-Python לתוך הקונטיינר
+      - ./hebpipePython:/app  # חיבור תיקיית ה-Python לתוך הקונטיינר
     env_file:
       - .env  # שימוש בקובץ ENV עולמי עבור Python

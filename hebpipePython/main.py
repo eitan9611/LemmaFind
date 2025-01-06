@@ -18,10 +18,9 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 app = Flask(__name__)
 
-input_file = "input.txt"
+input_file = "input.pdf"
 text_file = "shmona01.pdf"
 PROCESS = True  # True when URL is new and I want to make new data into roots
-check = False  # if you change that so also change the word document
 
 def main_logic(word):
     # Set up environment variables
@@ -48,9 +47,10 @@ def main_logic(word):
         dict = heb_pipe_dicta.process_roots_memory(input_file)
         merge_dicts.merge_dict_to_mongodb(roots_collection, dict)
 
-    values = find_values.get_values_from_dict_inMongo(roots_collection, word)
-    result = find_in_text.find_sentences_with_values(text_file, values)
-    return result
+    #values = find_values.get_values_from_dict_inMongo(roots_collection, word)
+    #result = find_in_text.find_sentences_with_values(text_file, values)
+    print("succeded")
+    #return result
 
 @app.route('/run-main', methods=['POST'])
 def run_main():
@@ -62,4 +62,5 @@ def run_main():
     return jsonify(result)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    main_logic("אגדה")
+    #app.run(host='0.0.0.0', port=5000)
