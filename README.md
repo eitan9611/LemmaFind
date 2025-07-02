@@ -43,3 +43,21 @@ flowchart TD
     B3 -->|returns JSON| A1
 
 ```
+
+
+```mermaid
+sequenceDiagram
+    participant User as User (Browser)
+    participant FE as Frontend JS (gui_app.js)
+    participant API as NodeJS API Server
+    participant PY as Python Flask Service
+    participant DB as MongoDB
+
+    User->>FE: Enter word and click Search
+    FE->>API: GET /api/PersonalPage/{word}
+    API->>PY: POST /run-main { "word": word }
+    PY->>DB: (if needed) Read/Update Roots collection
+    PY->>API: JSON result (words with same root)
+    API->>FE: JSON result
+    FE->>User: Render formatted result cards
+```
